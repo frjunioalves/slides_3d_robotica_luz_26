@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aula 3D: Monte seu Semáforo com Arduino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eaf1f7;--ink:#1d2433;--muted:#5b6578;--card:#fff;--line:#dfe6ee;--red:#ff4545;--yel:#ffc300;--grn:#22c55e;--accent:#6c4cf5}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Nunito,system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+.app{display:flex;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px}
+.tl{display:flex;flex-direction:column;gap:3px;background:#1d2433;padding:5px 6px;border-radius:8px}
+.tl i{width:9px;height:9px;border-radius:50%;display:block}
+.tl i:nth-child(1){background:var(--red)}.tl i:nth-child(2){background:var(--yel)}.tl i:nth-child(3){background:var(--grn)}
+h1{font-family:'Baloo 2',sans-serif;font-size:22px;margin:0;line-height:1}
+h1 small{display:block;font-family:Nunito;font-size:12px;color:var(--muted);font-weight:700;margin-top:3px}
+.badge3d{font-family:'Baloo 2';background:linear-gradient(135deg,#6c4cf5,#22b8f0);color:#fff;border-radius:8px;padding:1px 8px;font-size:15px;margin-left:6px;vertical-align:2px}
+.dots{display:flex;gap:6px;margin-left:auto;align-items:center;flex-wrap:wrap}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid #c6d0dc;background:#fff;cursor:pointer;padding:0;transition:.2s}
+.dot.done{background:#b7c7ff;border-color:#8ea6ff}
+.dot.cur{background:var(--accent);border-color:var(--accent);transform:scale(1.3)}
+.hbtn{border:none;background:#f0f3f8;border-radius:10px;padding:7px 10px;font-size:15px;cursor:pointer}
+.hbtn:hover{background:#e2e8f2}
+main{flex:1;display:grid;grid-template-columns:1fr 410px;min-height:0}
+.stage{position:relative;margin:14px;border-radius:20px;overflow:hidden;background:#0f1622}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.stage canvas.dragging{cursor:grabbing}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;font-weight:800;font-size:13px;padding:5px 11px;border-radius:999px;background:#fff;color:#1d2433;box-shadow:0 4px 14px rgba(0,0,0,.35);transform:translate(-50%,calc(-100% - 16px))}
+.lbl::after{content:'';position:absolute;left:50%;top:100%;width:2px;height:16px;background:rgba(255,255,255,.85);transform:translateX(-50%)}
+.lbl.l{transform:translate(calc(-100% - 22px),-50%)}
+.lbl.l::after{left:100%;top:50%;width:22px;height:2px;transform:translateY(-50%)}
+.lbl.r{transform:translate(22px,-50%)}
+.lbl.r::after{left:auto;right:100%;top:50%;width:22px;height:2px;transform:translateY(-50%)}
+.lbl.blue{background:#dbe7ff;color:#1c4fb8}.lbl.red{background:#ffe0e0;color:#b3261e}.lbl.yel{background:#fff7d6;color:#7a5b00}.lbl.dark{background:#1d2433;color:#fff}.lbl.green{background:#dcfce7;color:#0f5e28}
+.zoom{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:44px;height:44px;border-radius:12px;border:none;background:rgba(255,255,255,.95);font-size:20px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.25);color:#1d2433}
+.zoom button:hover{background:#fff;transform:scale(1.06)}
+.zoom button.on{background:#6c4cf5;color:#fff}
+.hint{position:absolute;left:14px;top:14px;background:rgba(255,255,255,.12);color:#dfe8f5;font-size:13px;font-weight:700;padding:8px 12px;border-radius:12px;backdrop-filter:blur(4px);transition:opacity .6s;pointer-events:none;max-width:calc(100% - 28px)}
+.toast{position:absolute;left:50%;top:16px;transform:translate(-50%,-20px);background:#fff;color:#1d2433;font-weight:800;padding:9px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;transition:.35s;pointer-events:none;white-space:nowrap;font-size:14px}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cfe0f5;font-weight:800;font-size:18px}
+.panel{margin:14px 14px 14px 0;background:var(--card);border-radius:20px;display:flex;flex-direction:column;min-height:0;box-shadow:0 2px 0 var(--line)}
+.content{flex:1;overflow:auto;padding:22px 22px 10px}
+.chip{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:#efeaff;color:var(--accent)}
+.content h2{font-family:'Baloo 2',sans-serif;font-size:27px;line-height:1.1;margin:10px 0 10px}
+.content p{font-size:16px;line-height:1.5;margin:0 0 12px}
+.content ul{padding-left:20px;margin:0 0 12px}
+.content li{font-size:15.5px;line-height:1.45;margin-bottom:6px}
+.box{border-radius:14px;padding:12px 14px;margin:12px 0;font-size:14.5px;line-height:1.45}
+.tip{background:#fff7d6;border:1px solid #f3e19a}.warn{background:#ffe9e9;border:1px solid #ffc6c6}.fun{background:#e6f6ff;border:1px solid #bfe3fa}
+.box b:first-child{display:block;margin-bottom:3px}
+.mats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}
+.mat{background:#f5f7fb;border:1px solid var(--line);border-radius:12px;padding:9px 10px;font-size:13.5px;font-weight:700;display:flex;gap:8px;align-items:center}
+.mat span{font-size:20px}
+.where{display:inline-block;background:#1d2433;color:#fff;border-radius:8px;padding:1px 7px;font-weight:800;font-size:14px}
+.btn{border:none;border-radius:12px;padding:10px 14px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;background:#eef1f6;color:#1d2433}
+.btn:hover{filter:brightness(.96)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.on{background:#1d2433;color:#fff}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+nav{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid var(--line)}
+nav .btn{padding:12px 18px;font-size:16px}
+nav .next{margin-left:auto;background:var(--accent);color:#fff}
+nav .next:disabled,nav .prev:disabled{opacity:.35;cursor:default}
+nav .count{font-weight:800;color:var(--muted);font-size:14px}
+.code{background:#141b26;color:#e6edf7;border-radius:14px;padding:10px 0;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.55;margin:10px 0;overflow:auto}
+.ln{padding:0 12px;white-space:pre;cursor:pointer;border-left:3px solid transparent}
+.ln:hover{background:#1f2a3a}.ln.sel{background:#2b2558;border-left-color:#a58bff}.ln.run{background:#14361f;border-left-color:#4ade80}
+.ln .k{color:#ff8fb1}.ln .f{color:#7cc7ff}.ln .c{color:#ffd166}.ln .n{color:#c3a6ff}.ln .cm{color:#7d8aa0;font-style:italic}
+.explain{background:#f3efff;border:1px solid #ddd2ff;border-radius:12px;padding:10px 12px;font-size:14.5px;min-height:46px}
+.check label{display:flex;gap:10px;align-items:flex-start;font-size:15px;padding:7px 0;cursor:pointer}
+.check input{width:20px;height:20px;accent-color:var(--grn);flex:none;margin-top:1px}
+.status{display:flex;align-items:center;gap:12px;background:#141b26;color:#fff;border-radius:14px;padding:12px 14px;margin:10px 0}
+.mini{display:flex;flex-direction:column;gap:4px;background:#000;padding:6px;border-radius:10px}
+.mini i{width:16px;height:16px;border-radius:50%;background:#333;display:block;transition:.15s}
+.mini i.r.on{background:var(--red);box-shadow:0 0 12px var(--red)}.mini i.y.on{background:var(--yel);box-shadow:0 0 12px var(--yel)}.mini i.g.on{background:var(--grn);box-shadow:0 0 12px var(--grn)}
+.status .txt{font-weight:800;font-size:16px}.status .sub{font-size:13px;color:#9fb0c8}
+.q{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+.q p{font-weight:800;margin-bottom:8px;font-size:15.5px}
+.q button{display:block;width:100%;text-align:left;margin:5px 0;border:2px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;font-family:inherit;font-size:14.5px;cursor:pointer}
+.q button:hover{border-color:#b9c4d4}.q button.ok{border-color:var(--grn);background:#e9fbef}.q button.no{border-color:#ff8a8a;background:#fff0f0}
+.q .fb{font-size:14px;margin-top:6px;color:var(--muted)}
+.score{font-weight:800;font-size:16px;margin:8px 0}
+@media (max-width:920px){
+  .app{height:auto;min-height:100vh}
+  main{grid-template-columns:1fr;grid-template-rows:58vh auto}
+  .stage{margin:10px}.panel{margin:0 10px 10px}.content{overflow:visible}
+  .dots{margin-left:0;width:100%}h1{font-size:19px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><div class="tl"><i></i><i></i><i></i></div>
+      <h1>Monte seu Semáforo com Arduino <span class="badge3d">3D</span><small>Aula passo a passo · protoboard média (400 furos)</small></h1></div>
+    <div class="dots" id="dots"></div>
+    <button class="hbtn" id="snd" title="Som">🔊</button>
+    <button class="hbtn" id="fs" title="Tela cheia">⛶</button>
+  </header>
+  <main>
+    <div class="stage" id="stage">
+      <div class="loading" id="loading">Carregando a bancada 3D…</div>
+      <div id="labels"></div>
+      <div class="hint" id="hint">✋ Arraste para girar · 🖱️ role para zoom · botão direito (ou 2 dedos) move · 👆 toque nos furos</div>
+      <div class="toast" id="toast"></div>
+      <div class="zoom">
+        <button id="zin" title="Aproximar">+</button>
+        <button id="zout" title="Afastar">−</button>
+        <button id="ztop" title="Vista de cima">⬇</button>
+        <button id="zfocus" title="Focar na peça">🎯</button>
+        <button id="zrot" title="Girar sozinho">⟳</button>
+      </div>
+    </div>
+    <aside class="panel">
+      <div class="content" id="content"></div>
+      <nav>
+        <button class="btn prev" id="prev">◀ Voltar</button>
+        <span class="count" id="count"></span>
+        <button class="btn next" id="next">Próximo ▶</button>
+      </nav>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(async function(){
+if(!window.THREE){ document.getElementById('loading').textContent='Não foi possível carregar o 3D. Verifique a internet e recarregue.'; return; }
+try{ await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,1500))]); }catch(e){}
+const T=THREE, V=(x,y,z)=>new T.Vector3(x,y,z);
+
+/* ============ GEOMETRIA (mesma da versão 2D: 20 px = 1 unidade) ============ */
+const X=x=>(x-825)/20, Z=y=>(y-330)/20;
+const cx2d=c=>530+(c-1)*20, col=c=>X(cx2d(c));
+const ROWZ={j:-5.5,i:-4.5,h:-3.5,g:-2.5,f:-1.5,e:.5,d:1.5,c:2.5,b:3.5,a:4.5};
+const RAILZ={tm:-8.5,tp:-7.5,bm:7,bp:8};
+const TOP=0.8;
+const RAILCOLS=[]; [[2,6],[8,12],[14,18],[20,24],[26,30]].forEach(([a,b])=>{for(let c=a;c<=b;c++)RAILCOLS.push(c)});
+const LEDS={R:{ax:col(8), pin:X(320), cz:Z(110), name:'vermelho', on:0xff3030, off:0x8a1616, hex:'#c81414', dark:0x6a0c0c},
+            Y:{ax:col(15),pin:X(304), cz:Z(90),  name:'amarelo',  on:0xffc400, off:0x7d5e08, hex:'#d9a400', dark:0x6a5000},
+            G:{ax:col(22),pin:X(288), cz:Z(70),  name:'verde',    on:0x18e85c, off:0x0f5a2c, hex:'#0c8a36', dark:0x0a3d1c}};
+const PINZ=Z(212), GNDP={x:X(240),z:Z(468)}, GNDR={x:col(3),z:RAILZ.bm};
+
+/* ============ CENA ============ */
+const stage=document.getElementById('stage');
+const renderer=new T.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
+renderer.outputEncoding=T.sRGBEncoding; renderer.toneMapping=T.ACESFilmicToneMapping; renderer.toneMappingExposure=0.92;
+stage.insertBefore(renderer.domElement, stage.firstChild);
+document.getElementById('loading').remove();
+const canvas=renderer.domElement;
+const scene=new T.Scene(); scene.background=new T.Color(0x0f1622); scene.fog=new T.Fog(0x0f1622,90,190);
+const camera=new T.PerspectiveCamera(40,1,0.1,500);
+scene.add(new T.HemisphereLight(0xffffff,0x2a3548,0.75));
+const sun=new T.DirectionalLight(0xffffff,0.95); sun.position.set(-18,42,26); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); Object.assign(sun.shadow.camera,{left:-50,right:30,top:25,bottom:-25,near:1,far:120}); sun.shadow.bias=-0.0005;
+scene.add(sun); scene.add(new T.AmbientLight(0xffffff,0.15));
+
+function canvasTex(w,h,draw,repeat){
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); draw(g,w,h);
+  const t=new T.CanvasTexture(c); t.encoding=T.sRGBEncoding; t.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  if(repeat){ t.wrapS=t.wrapT=T.RepeatWrapping; t.repeat.set(repeat,repeat); }
+  return t;
+}
+// tapete de corte
+const matTex=canvasTex(256,256,(g,w,h)=>{ g.fillStyle='#16233a'; g.fillRect(0,0,w,h); g.strokeStyle='#22334f'; g.lineWidth=2;
+  for(let i=0;i<=w;i+=64){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,h); g.stroke(); g.beginPath(); g.moveTo(0,i); g.lineTo(w,i); g.stroke(); } },40);
+const floor=new T.Mesh(new T.PlaneGeometry(400,400), new T.MeshStandardMaterial({map:matTex,roughness:.95}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+
+const std=(color,o={})=>new T.MeshStandardMaterial(Object.assign({color,roughness:.6,metalness:0},o));
+const metal=std(0xc4c9d0,{metalness:.85,roughness:.3});
+function box(w,h,d,mat,x,y,z,parent){ const m=new T.Mesh(new T.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; (parent||scene).add(m); return m; }
+function cyl(r,h,mat,x,y,z,parent,seg=24){ const m=new T.Mesh(new T.CylinderGeometry(r,r,h,seg),mat); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; (parent||scene).add(m); return m; }
+function polyTube(pts,r,mat,parent,seg){ const path=new T.CurvePath(); for(let i=0;i<pts.length-1;i++) path.add(new T.LineCurve3(pts[i],pts[i+1]));
+  const m=new T.Mesh(new T.TubeGeometry(path,seg||pts.length*10,r,8,false),mat); m.castShadow=true; (parent||scene).add(m); return m; }
+
+/* ============ PROTOBOARD ============ */
+const HOLES=[];
+for(let c=1;c<=30;c++) for(const r in ROWZ) HOLES.push({x:col(c),z:ROWZ[r],g:'c'+c+('abcde'.includes(r)?'B':'T'),c});
+for(const k in RAILZ) RAILCOLS.forEach(c=>HOLES.push({x:col(c),z:RAILZ[k],g:'r'+k}));
+const boardTex=canvasTex(2600,1520,(g)=>{
+  const k=4, P=(x,y)=>[(x-500)*k,(y-135)*k];
+  g.fillStyle='#f4f1ea'; g.fillRect(0,0,2600,1520);
+  g.fillStyle='#e1dccf'; g.fillRect(...P(506,313),638*k,14*k);
+  const line=(y,c)=>{ g.strokeStyle=c; g.lineWidth=10; g.beginPath(); g.moveTo(...P(522,y)); g.lineTo(...P(1128,y)); g.stroke(); };
+  line(147,'#2f6fde'); line(193,'#e53935'); line(457,'#2f6fde'); line(503,'#e53935');
+  g.textAlign='center'; g.textBaseline='middle';
+  const lab=(x,y,t,c,fs,w)=>{ g.fillStyle=c; g.font=`${w||800} ${fs*k}px Nunito, Arial`; g.fillText(t,...P(x,y)); };
+  [[160,'−','#2f6fde'],[180,'+','#e53935'],[470,'−','#2f6fde'],[490,'+','#e53935']].forEach(([y,t,c])=>{ lab(512,y,t,c,15); lab(1138,y,t,c,15); });
+  const RY={j:220,i:240,h:260,g:280,f:300,e:340,d:360,c:380,b:400,a:420};
+  for(const r in RY){ lab(513,RY[r],r,'#8b8577',10); lab(1137,RY[r],r,'#8b8577',10); }
+  for(let c=1;c<=30;c++){ if(c===1||c%5===0){ lab(cx2d(c),207,c,'#9a937f',9); lab(cx2d(c),438,c,'#9a937f',9); } }
+  HOLES.forEach(h=>{ const [px,py]=[(h.x*20+825-500)*k,(h.z*20+330-135)*k];
+    g.fillStyle='#2f3136'; g.beginPath(); g.roundRect?g.roundRect(px-19,py-19,38,38,7):g.rect(px-19,py-19,38,38); g.fill();
+    g.fillStyle='#17181b'; g.fillRect(px-11,py-11,22,22); });
+});
+const boardSide=std(0xe9e4d6,{roughness:.8}), boardTop=std(0xffffff,{map:boardTex,roughness:.75});
+const boardMats=[boardSide,boardSide,boardTop,boardSide,boardSide,boardSide];
+const pBoard=new T.Group(); scene.add(pBoard);
+const boardMesh=new T.Mesh(new T.BoxGeometry(32.5,0.8,19),boardMats); boardMesh.position.set(0,0.4,-0.25); boardMesh.castShadow=boardMesh.receiveShadow=true; pBoard.add(boardMesh);
+// raio-x
+const xray=new T.Group(); pBoard.add(xray); xray.visible=false;
+const gold=std(0xd9a521,{metalness:.8,roughness:.35,emissive:0x3a2a00});
+for(let c=1;c<=30;c++){ box(.55,.12,4.8,gold,col(c),.45,-3.5,xray); box(.55,.12,4.8,gold,col(c),.45,2.5,xray); }
+const rmin=col(2)-.4, rmax=col(30)+.4;
+[[RAILZ.tm,0x5b8cff],[RAILZ.tp,0xff6b6b],[RAILZ.bm,0x5b8cff],[RAILZ.bp,0xff6b6b]].forEach(([z,c])=>box(rmax-rmin,.12,.55,std(c,{metalness:.6,roughness:.4,emissive:c,emissiveIntensity:.25}),(rmin+rmax)/2,.45,z,xray));
+function setXray(on){ xray.visible=on; boardMats.forEach(m=>{ m.transparent=on; m.opacity=on?.28:1; m.depthWrite=!on; m.needsUpdate=true; }); }
+
+/* ============ ARDUINO ============ */
+const pArd=new T.Group(); scene.add(pArd);
+const TOP1=['AREF','GND','13','12','~11','~10','~9','8'], TOP2=['7','~6','~5','4','~3','2','TX 1','RX 0'];
+const BOT1=['IOREF','RESET','3.3V','5V','GND','GND','Vin'], BOT2=['A0','A1','A2','A3','A4','A5'];
+const pcbTex=canvasTex(1600,1160,(g)=>{
+  const k=4,P=(x,y)=>[(x-40)*k,(y-195)*k];
+  g.fillStyle='#0a7f8f'; g.fillRect(0,0,1600,1160);
+  g.strokeStyle='rgba(255,255,255,.08)'; g.lineWidth=6; for(let i=0;i<12;i++){ g.beginPath(); g.moveTo(...P(180+i*14,250)); g.lineTo(...P(200+i*14,340)); g.stroke(); }
+  g.fillStyle='#fff'; g.textAlign='center'; g.textBaseline='middle';
+  const t=(x,y,s,fs,rot,align)=>{ g.save(); g.translate(...P(x,y)); if(rot) g.rotate(rot); g.textAlign=align||'center'; g.font=`800 ${fs*k}px Nunito, Arial`; g.fillText(s,0,0); g.restore(); };
+  t(300,312,'ARDUINO UNO',22); t(344,270,'DIGITAL (PWM ~)',8.5); t(228,430,'POWER',8.5); t(344,430,'ANALOG IN',8.5);
+  TOP1.forEach((s,i)=>t(152+i*16,226,s,7,-Math.PI/2,'right')); TOP2.forEach((s,i)=>t(288+i*16,226,s,7,-Math.PI/2,'right'));
+  BOT1.forEach((s,i)=>t(176+i*16,454,s,7,-Math.PI/2,'left')); BOT2.forEach((s,i)=>t(304+i*16,454,s,7,-Math.PI/2,'left'));
+  [['L',250,'#f6d365'],['TX',263,'#f6d365'],['RX',276,'#f6d365']].forEach(([s,y,c])=>{ g.fillStyle=c; g.fillRect(...P(150,y),12*k,7*k); g.fillStyle='#fff'; t(172,y+3.5,s,7); });
+  g.fillStyle='#7CFC9A'; g.fillRect(...P(392,282),12*k,7*k); g.fillStyle='#fff'; t(412,286,'ON',7);
+  t(109,240,'RESET',7);
+  [[425,246],[425,442],[118,470]].forEach(([x,y])=>{ g.fillStyle='#e8eef2'; g.beginPath(); g.arc(...P(x,y),7*k,0,7); g.fill(); g.fillStyle='#0a7f8f'; g.beginPath(); g.arc(...P(x,y),4*k,0,7); g.fill(); });
+  g.strokeStyle='rgba(255,255,255,.6)'; g.lineWidth=5; g.strokeRect(...P(210,356),210*k,50*k);
+});
+const pcb=new T.Mesh(new T.BoxGeometry(20,.16,14.5),[std(0x066470),std(0x066470),std(0xffffff,{map:pcbTex,roughness:.55}),std(0x066470),std(0x066470),std(0x066470)]);
+pcb.position.set(-29.25,.42,.5); pcb.castShadow=pcb.receiveShadow=true; pArd.add(pcb);
+[[-38.6,-6.1],[-19.9,-6.1],[-38.6,7.1],[-19.9,7.1]].forEach(([x,z])=>cyl(.3,.34,std(0x999999),x,.17,z,pArd,10));
+box(3.9,1.35,3.3,metal,X(57),1.18,Z(259),pArd);                                  // USB
+box(3.5,1.5,2.8,std(0x1a1a1a,{roughness:.4}),X(57),1.25,Z(426),pArd);             // jack
+const blk=std(0x151515,{roughness:.45});
+box(10,.5,1.9,blk,X(315),.75,Z(381),pArd);                                         // chip
+for(let i=0;i<14;i++){ box(.22,.32,.35,metal,X(225+i*14),.58,Z(381)-1.05,pArd); box(.22,.32,.35,metal,X(225+i*14),.58,Z(381)+1.05,pArd); }
+const xtal=cyl(.45,2.2,metal,X(145),.95,Z(327),pArd); xtal.rotation.z=Math.PI/2;
+[[108,402],[148,402]].forEach(([x,y])=>{ cyl(.75,1.4,std(0xb8bec6,{metalness:.6,roughness:.35}),X(x),1.2,Z(y),pArd); cyl(.6,.02,std(0x333333),X(x),1.91,Z(y),pArd); });
+box(1.7,.9,1.4,blk,X(77),.95,Z(336),pArd);
+box(1.3,.5,1.3,std(0xcfd5db),X(109),.75,Z(216),pArd); cyl(.4,.3,std(0xdd3333),X(109),1.1,Z(216),pArd);
+const hdr=(x1,x2,y)=>box(X(x2)-X(x1),.9,.8,blk,(X(x1)+X(x2))/2,.95,Z(y),pArd);
+hdr(144,272,212); hdr(280,408,212); hdr(168,284,468); hdr(296,396,468);
+const holeMat=new T.MeshBasicMaterial({color:0x000000});
+const sock=(x,z)=>{ const m=new T.Mesh(new T.PlaneGeometry(.34,.34),holeMat); m.rotation.x=-Math.PI/2; m.position.set(x,1.405,z); pArd.add(m); };
+TOP1.forEach((_,i)=>sock(X(152+i*16),PINZ)); TOP2.forEach((_,i)=>sock(X(288+i*16),PINZ));
+BOT1.forEach((_,i)=>sock(X(176+i*16),Z(468))); BOT2.forEach((_,i)=>sock(X(304+i*16),Z(468)));
+const onLed=new T.Mesh(new T.BoxGeometry(.5,.15,.3),new T.MeshStandardMaterial({color:0x7cfc9a,emissive:0x22ff66,emissiveIntensity:.8})); onLed.position.set(X(398),.56,Z(285)); pArd.add(onLed);
+
+/* ============ LEDs ============ */
+const glowTex=canvasTex(128,128,(g)=>{ const r=g.createRadialGradient(64,64,0,64,64,64); r.addColorStop(0,'rgba(255,255,255,1)'); r.addColorStop(.25,'rgba(255,255,255,.55)'); r.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=r; g.fillRect(0,0,128,128); });
+glowTex.flipY=true;
+const legMat=std(0xbfc4cb,{metalness:.9,roughness:.25});
+const ledObj={};
+for(const k in LEDS){
+  const L=LEDS[k], ax=L.ax, zc=ROWZ.b, bx=ax+0.4, bb=2.2;
+  const grp=new T.Group(); scene.add(grp);
+  polyTube([V(ax,.55,zc),V(ax,bb+.1,zc)],.075,legMat,grp);                                         // perna reta (+)
+  polyTube([V(ax+1,.55,zc),V(ax+1,1.25,zc),V(bx+.25,1.75,zc),V(bx+.25,bb+.1,zc)],.075,legMat,grp,40); // perna dobrada (−)
+  const bodyMat=new T.MeshStandardMaterial({color:L.off,roughness:.22,metalness:0,transparent:true,opacity:.92,emissive:L.on,emissiveIntensity:0});
+  const flange=new T.Mesh(new T.CylinderGeometry(1.0,1.0,.22,32,1,false),bodyMat); flange.position.set(bx,bb+.11,zc); flange.castShadow=true; grp.add(flange);
+  const cut=box(.3,.24,2.1,std(0x000000,{transparent:true,opacity:0}),bx+1.0,bb+.11,zc,grp); cut.visible=false;
+  const body=new T.Mesh(new T.CylinderGeometry(.85,.85,1.4,32),bodyMat); body.position.set(bx,bb+.92,zc); body.castShadow=true; grp.add(body);
+  const dome=new T.Mesh(new T.SphereGeometry(.85,32,16,0,Math.PI*2,0,Math.PI/2),bodyMat); dome.position.set(bx,bb+1.62,zc); dome.castShadow=true; grp.add(dome);
+  const spr=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:L.on,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false}));
+  spr.scale.set(6,6,1); spr.position.set(bx,bb+1.3,zc); grp.add(spr);
+  const light=new T.PointLight(L.on,0,14,2); light.position.set(bx,bb+1.3,zc+.3); grp.add(light);
+  ledObj[k]={grp,bodyMat,spr,light,bx,bb,zc};
+}
+function setLeds(o){ for(const k in ledObj){ const on=!!o[k], L=ledObj[k];
+  L.bodyMat.emissiveIntensity=on?0.75:0; L.bodyMat.color.setHex(on?LEDS[k].on:LEDS[k].off); L.spr.material.opacity=on?.7:0; L.light.intensity=on?3:0; } }
+
+/* ============ RESISTORES ============ */
+const resObj={};
+['R','Y','G'].forEach(k=>{
+  const x=LEDS[k].ax+1, z1=ROWZ.a, z2=RAILZ.bm, zm=(z1+z2)/2, grp=new T.Group(); scene.add(grp);
+  polyTube([V(x,.55,z1),V(x,1.35,z1),V(x,1.35,z2),V(x,.55,z2)],.06,legMat,grp,60);
+  const bodyM=std(0xdcbc84,{roughness:.5});
+  const b=cyl(.32,1.5,bodyM,x,1.35,zm,grp); b.rotation.x=Math.PI/2;
+  [-.75,.75].forEach(o=>{ const s=new T.Mesh(new T.SphereGeometry(.36,16,12),bodyM); s.position.set(x,1.35,zm+o); s.castShadow=true; grp.add(s); });
+  [[-.5,0xd32f2f],[-.22,0xd32f2f],[.06,0x6d3b16],[.62,0xc9a227]].forEach(([o,c])=>{ const r=cyl(.335,.14,std(c,{roughness:.4,metalness:c===0xc9a227?.7:0}),x,1.35,zm+o,grp); r.rotation.x=Math.PI/2; });
+  resObj[k]=grp;
+});
+
+/* ============ FIOS ============ */
+function wireCurve(pts){ return new T.CatmullRomCurve3(pts,false,'centripetal',.5); }
+const curves={
+  GND: wireCurve([V(GNDP.x,2.25,GNDP.z),V(GNDP.x,3.0,GNDP.z+.8),V(GNDP.x+.6,1.4,10.4),V(-22,0.35,11.6),V(GNDR.x-1.5,0.9,10.6),V(GNDR.x,2.6,8.2),V(GNDR.x,1.65,GNDR.z)])
+};
+for(const k in LEDS){ const L=LEDS[k];
+  curves[k]=wireCurve([V(L.pin,2.25,PINZ),V(L.pin,3.4,PINZ-.6),V(L.pin+.6,3.9,L.cz),V((L.pin+L.ax)/2,4.1,L.cz-.2),V(L.ax-.6,3.9,L.cz),V(L.ax,3.4,ROWZ.e-2.2),V(L.ax,2.5,ROWZ.e-.1),V(L.ax,1.65,ROWZ.e)]); }
+const wireObj={};
+function makeWire(key,color,dark,start,end){
+  const grp=new T.Group(); scene.add(grp);
+  const geo=new T.TubeGeometry(curves[key],220,.14,10,false);
+  const m=new T.Mesh(geo,std(color,{roughness:.45})); m.castShadow=true; grp.add(m);
+  const pm=std(dark,{roughness:.5});
+  const ps=box(.42,.9,.42,pm,start.x,1.85,start.z,grp);
+  const pe=box(.42,.9,.42,pm,end.x,TOP+.45,end.z,grp);
+  wireObj[key]={grp,geo,ps,pe,count:geo.index.count};
+}
+makeWire('GND',0x151515,0x050505,{x:GNDP.x,z:GNDP.z},{x:GNDR.x,z:GNDR.z});
+for(const k in LEDS){ const L=LEDS[k]; makeWire(k,new T.Color(L.hex).getHex(),L.dark,{x:L.pin,z:PINZ},{x:L.ax,z:ROWZ.e}); }
+
+/* ============ FLUXO DA ELETRICIDADE ============ */
+function resample(pts,step=.12){ const out=[pts[0].clone()]; let acc=0;
+  for(let i=1;i<pts.length;i++){ const a=pts[i-1], b=pts[i], d=a.distanceTo(b); let t=step-acc;
+    while(t<=d){ out.push(a.clone().lerp(b,t/d)); t+=step; } acc=d-(t-step); }
+  return out; }
+function flowPts(k){
+  const L=LEDS[k], ax=L.ax, zc=ROWZ.b, o=ledObj[k], s=.86;
+  let p=curves[k].getPoints(160);
+  p=p.concat([V(ax,s,ROWZ.e),V(ax,s,zc),V(ax,o.bb,zc),V(o.bx,o.bb+1.2,zc),V(o.bx+.25,o.bb,zc),V(o.bx+.25,1.75,zc),V(ax+1,1.25,zc),V(ax+1,s,zc),
+    V(ax+1,s,ROWZ.a),V(ax+1,1.35,ROWZ.a),V(ax+1,1.35,RAILZ.bm),V(ax+1,s,RAILZ.bm),V(GNDR.x,s,RAILZ.bm)]);
+  p=p.concat(curves.GND.getPoints(120).reverse());
+  return resample(p);
+}
+const dotGeo=new T.SphereGeometry(.17,12,8), dotMat=new T.MeshBasicMaterial({color:0xfff27a});
+const flowObj={};
+for(const k in LEDS){ const g=new T.Group(); g.visible=false; scene.add(g); const pts=flowPts(k), N=22, dots=[];
+  for(let i=0;i<N;i++){ const d=new T.Mesh(dotGeo,dotMat); const s=new T.Sprite(new T.SpriteMaterial({map:glowTex,color:0xffe45c,transparent:true,opacity:.8,blending:T.AdditiveBlending,depthWrite:false})); s.scale.set(1.1,1.1,1); d.add(s); g.add(d); dots.push(d); }
+  flowObj[k]={g,pts,dots}; }
+function setFlow(o){ for(const k in flowObj) flowObj[k].g.visible=!!o[k]; }
+
+/* ============ PEÇAS E PASSOS ============ */
+const PIECES=[
+  {obj:pBoard,step:1,h:12,pts:[]},
+  {obj:pArd,step:2,h:12,pts:[]},
+  {obj:ledObj.R.grp,step:3,h:7,pts:[[LEDS.R.ax,ROWZ.b],[LEDS.R.ax+1,ROWZ.b]]},
+  {obj:ledObj.Y.grp,step:4,h:7,pts:[[LEDS.Y.ax,ROWZ.b],[LEDS.Y.ax+1,ROWZ.b]]},
+  {obj:ledObj.G.grp,step:5,h:7,pts:[[LEDS.G.ax,ROWZ.b],[LEDS.G.ax+1,ROWZ.b]]},
+  ...['R','Y','G'].map((k,i)=>({obj:resObj[k],step:6,h:7,delay:i*380,pts:[[LEDS[k].ax+1,ROWZ.a],[LEDS[k].ax+1,RAILZ.bm]]})),
+  {wire:'GND',step:7,pts:[[GNDP.x,GNDP.z,1.42],[GNDR.x,GNDR.z]]},
+  {wire:'R',step:8,pts:[[LEDS.R.pin,PINZ,1.42],[LEDS.R.ax,ROWZ.e]]},
+  {wire:'Y',step:9,pts:[[LEDS.Y.pin,PINZ,1.42],[LEDS.Y.ax,ROWZ.e]]},
+  {wire:'G',step:10,pts:[[LEDS.G.pin,PINZ,1.42],[LEDS.G.ax,ROWZ.e]]},
+];
+PIECES.forEach(p=>{ if(p.wire) p.obj=wireObj[p.wire].grp; });
+
+/* ============ ANOTAÇÕES (rótulos HTML + marcadores) ============ */
+const labelsEl=document.getElementById('labels');
+const LABELS=[];
+function L(steps,pos,text,cls){ const el=document.createElement('div'); el.className='lbl '+(cls||''); el.textContent=text; labelsEl.appendChild(el); LABELS.push({steps,pos,el}); }
+L([1],V(X(600),TOP,RAILZ.tm),'Trilho − (azul)','blue');
+L([1],V(X(960),TOP,RAILZ.tp),'Trilho + (vermelho)','red');
+L([1],V(0,TOP,Z(320)),'Canaleta: separa as metades','dark');
+L([1],V(col(5),TOP,ROWZ.a+.3),'Estes 5 furos estão ligados','yel');
+L([2],V(LEDS.Y.pin,1.5,PINZ),'Pinos digitais 7 · 6 · 5','yel');
+L([2,7],V(GNDP.x,1.5,GNDP.z),'GND (terra / −)','dark');
+L([3],V(LEDS.R.ax,1.3,ROWZ.b),'+ perna reta (longa)','red l');
+L([3],V(LEDS.R.ax+1,1.0,ROWZ.b),'− perna dobrada (curta)','blue r');
+L([7],V(GNDR.x,TOP,GNDR.z),'Trilho − (azul)','blue');
+L([8],V(LEDS.R.pin,1.5,PINZ),'pino 5','red'); L([8],V(LEDS.R.ax,TOP,ROWZ.e),'coluna 8 · linha e','red');
+L([9],V(LEDS.Y.pin,1.5,PINZ),'pino 6','yel'); L([9],V(LEDS.Y.ax,TOP,ROWZ.e),'coluna 15 · linha e','yel');
+L([10],V(LEDS.G.pin,1.5,PINZ),'pino 7','green'); L([10],V(LEDS.G.ax,TOP,ROWZ.e),'coluna 22 · linha e','green');
+// caixas destacadas (passo 1)
+const annMeshes=[];
+function hiliteCol(c,z0,z1,steps){ const m=new T.Mesh(new T.BoxGeometry(.8,.06,z1-z0+.8),new T.MeshBasicMaterial({color:0xffcc00,transparent:true,opacity:.45,depthWrite:false})); m.position.set(col(c),TOP+.04,(z0+z1)/2); scene.add(m); annMeshes.push({m,steps}); }
+hiliteCol(5,ROWZ.e,ROWZ.a,[1]); hiliteCol(12,ROWZ.j,ROWZ.f,[1]);
+// anéis pulsantes
+const ringGeo=new T.RingGeometry(.3,.42,32), rings=[];
+function ringsAt(steps,pts){ pts.forEach(([x,z,y])=>{ const m=new T.Mesh(ringGeo,new T.MeshBasicMaterial({color:0xffe45c,transparent:true,side:T.DoubleSide,depthWrite:false})); m.rotation.x=-Math.PI/2; m.position.set(x,(y||TOP)+.03,z); m.visible=false; scene.add(m); rings.push({m,steps}); }); }
+ringsAt([2],[[LEDS.R.pin,PINZ,1.42],[LEDS.Y.pin,PINZ,1.42],[LEDS.G.pin,PINZ,1.42],[GNDP.x,GNDP.z,1.42]]);
+ringsAt([7],[[GNDP.x,GNDP.z,1.42],[GNDR.x,GNDR.z]]);
+ringsAt([8],[[LEDS.R.pin,PINZ,1.42],[LEDS.R.ax,ROWZ.e]]);
+ringsAt([9],[[LEDS.Y.pin,PINZ,1.42],[LEDS.Y.ax,ROWZ.e]]);
+ringsAt([10],[[LEDS.G.pin,PINZ,1.42],[LEDS.G.ax,ROWZ.e]]);
+
+/* ============ CÂMERA ORBITAL ============ */
+const orb={target:V(-10,0,0),dist:52,theta:-.35,phi:.92};
+let camTween=null, autoRot=false, lastUser=0;
+function applyCam(){ const s=Math.sin(orb.phi); camera.position.set(orb.target.x+orb.dist*s*Math.sin(orb.theta), orb.target.y+orb.dist*Math.cos(orb.phi), orb.target.z+orb.dist*s*Math.cos(orb.theta)); camera.lookAt(orb.target); }
+function flyTo(v,ms=1100){ const from={t:orb.target.clone(),d:orb.dist,th:orb.theta,ph:orb.phi};
+  let th=v.theta; while(th-from.th>Math.PI) th-=2*Math.PI; while(th-from.th<-Math.PI) th+=2*Math.PI;
+  camTween={from,to:{t:V(...v.t),d:v.d,th,ph:v.phi},t0:performance.now(),ms}; }
+function resize(){ const r=stage.getBoundingClientRect(); renderer.setSize(r.width,r.height,false); camera.aspect=r.width/r.height;
+  camera.fov = camera.aspect<1 ? 55 : 40; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage); resize();
+
+const ptrs=new Map(); let mode=null, moved=0, pinchD=0, downPt=null;
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('pointerdown',e=>{ canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  camTween=null; moved=0; downPt={x:e.clientX,y:e.clientY}; mode=(e.button===2||e.shiftKey)?'pan':'rot';
+  if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; pinchD=Math.hypot(a.x-b.x,a.y-b.y); mode='pinch'; }
+  canvas.classList.add('dragging'); lastUser=performance.now(); });
+function pan(dx,dy){ const k=orb.dist*0.0016; const right=V(Math.cos(orb.theta),0,-Math.sin(orb.theta)); const fwd=V(-Math.sin(orb.theta),0,-Math.cos(orb.theta));
+  orb.target.addScaledVector(right,-dx*k).addScaledVector(fwd,dy*k); clampTarget(); }
+function clampTarget(){ orb.target.x=Math.max(-45,Math.min(25,orb.target.x)); orb.target.z=Math.max(-20,Math.min(20,orb.target.z)); orb.target.y=Math.max(0,Math.min(6,orb.target.y)); }
+canvas.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; const p=ptrs.get(e.pointerId), c={x:e.clientX,y:e.clientY}; ptrs.set(e.pointerId,c);
+  const dx=c.x-p.x, dy=c.y-p.y; moved+=Math.abs(dx)+Math.abs(dy); lastUser=performance.now();
+  if(moved>4) hideHint();
+  if(mode==='pinch' && ptrs.size===2){ const [a,b]=[...ptrs.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y); orb.dist=Math.max(4,Math.min(130,orb.dist*pinchD/d)); pinchD=d; pan(dx/2,dy/2); }
+  else if(mode==='pan') pan(dx,dy);
+  else if(mode==='rot'){ orb.theta-=dx*0.0065; orb.phi=Math.max(.08,Math.min(1.45,orb.phi-dy*0.0055)); }
+});
+const up=e=>{ if(ptrs.size===1 && moved<5 && mode==='rot') pick(e.clientX,e.clientY); ptrs.delete(e.pointerId); if(ptrs.size<2&&mode==='pinch') mode='rot'; if(!ptrs.size) canvas.classList.remove('dragging'); };
+canvas.addEventListener('pointerup',up); canvas.addEventListener('pointercancel',up);
+canvas.addEventListener('wheel',e=>{ e.preventDefault(); camTween=null; hideHint(); lastUser=performance.now(); orb.dist=Math.max(4,Math.min(130,orb.dist*Math.exp(e.deltaY*0.0012))); },{passive:false});
+document.getElementById('zin').onclick=()=>{ camTween=null; orb.dist=Math.max(4,orb.dist/1.35); hideHint(); };
+document.getElementById('zout').onclick=()=>{ camTween=null; orb.dist=Math.min(130,orb.dist*1.35); hideHint(); };
+document.getElementById('ztop').onclick=()=>flyTo({t:[-10,0,0],d:58,theta:0,phi:.08});
+document.getElementById('zfocus').onclick=()=>flyTo(STEPS[step].cam);
+const rotBtn=document.getElementById('zrot');
+rotBtn.onclick=()=>{ autoRot=!autoRot; rotBtn.classList.toggle('on',autoRot); };
+let hintHidden=false; function hideHint(){ if(hintHidden) return; hintHidden=true; document.getElementById('hint').style.opacity=0; }
+
+/* ============ CLIQUE NOS FUROS ============ */
+const ray=new T.Raycaster(), hlGroup=new T.Group(); scene.add(hlGroup); let hlTimer;
+const hlMat=new T.MeshBasicMaterial({color:0xffd000});
+function pick(cxp,cyp){
+  if(step===0||!pBoard.visible) return;
+  const r=canvas.getBoundingClientRect(); ray.setFromCamera({x:(cxp-r.left)/r.width*2-1,y:-(cyp-r.top)/r.height*2+1},camera);
+  const hit=ray.intersectObject(boardMesh)[0]; if(!hit||hit.point.y<TOP-.05) return;
+  let best=null,bd=.45; HOLES.forEach(h=>{ const d=Math.hypot(h.x-hit.point.x,h.z-hit.point.z); if(d<bd){bd=d;best=h;} }); if(!best) return;
+  hlGroup.clear(); const list=HOLES.filter(h=>h.g===best.g);
+  list.forEach(h=>{ const m=new T.Mesh(new T.BoxGeometry(.5,.08,.5),hlMat); m.position.set(h.x,TOP+.05,h.z); hlGroup.add(m); });
+  toast(best.g[0]==='r' ? ((best.g.endsWith('m')?'Trilho − (azul)':'Trilho + (vermelho)')+`: todos os ${list.length} furos estão ligados!`) : `Coluna ${best.c}: estes 5 furos estão ligados por baixo ⚡`);
+  clickSound(900); clearTimeout(hlTimer); hlTimer=setTimeout(()=>hlGroup.clear(),3500);
+}
+
+/* ============ ANIMAÇÕES ============ */
+const anims=[], sparks=[];
+const outBounce=x=>{ const n=7.5625,d=2.75; if(x<1/d) return n*x*x; if(x<2/d) return n*(x-=1.5/d)*x+.75; if(x<2.5/d) return n*(x-=2.25/d)*x+.9375; return n*(x-=2.625/d)*x+.984375; };
+const sparkGeo=new T.RingGeometry(.2,.32,32);
+function spark(pts){ pts.forEach(([x,z,y])=>{ const m=new T.Mesh(sparkGeo,new T.MeshBasicMaterial({color:0xfff27a,transparent:true,side:T.DoubleSide,depthWrite:false})); m.rotation.x=-Math.PI/2; m.position.set(x,(y||TOP)+.05,z); scene.add(m); sparks.push({m,t0:performance.now()}); }); clickSound(); }
+function resetPiece(p){ p.obj.position.y=0; p.obj.visible=true; if(p.wire){ const w=wireObj[p.wire]; w.geo.setDrawRange(0,Infinity); w.ps.visible=w.pe.visible=true; } }
+function animatePiece(p){ const t0=performance.now()+(p.delay||0);
+  if(p.wire){ const w=wireObj[p.wire]; w.geo.setDrawRange(0,0); w.ps.visible=false; w.pe.visible=false; anims.push({p,t0,ms:1300,wire:true}); }
+  else { p.obj.position.y=p.h; p.obj.visible=false; anims.push({p,t0,ms:850}); } }
+
+/* ============ SOM / TOAST ============ */
+let actx=null, soundOn=true;
+function clickSound(freq=1600){ if(!soundOn) return; try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume();
+  const t=actx.currentTime,o=actx.createOscillator(),g=actx.createGain(); o.type='square'; o.frequency.setValueAtTime(freq,t); o.frequency.exponentialRampToValueAtTime(300,t+.06);
+  g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.0008,t+.09); o.connect(g).connect(actx.destination); o.start(t); o.stop(t+.1); }catch(e){} }
+document.getElementById('snd').onclick=e=>{ soundOn=!soundOn; e.currentTarget.textContent=soundOn?'🔊':'🔇'; };
+document.getElementById('fs').onclick=()=>{ try{ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{}); }catch(e){} };
+let toastT; function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ============ CÓDIGO ============ */
+const CODE=[
+ ['// Semáforo com Arduino','Comentário: tudo depois de // é ignorado pelo Arduino. Serve para explicar o código para pessoas.'],
+ ['int vermelho = 5;','Cria uma variável (uma "caixinha") chamada vermelho que guarda o número 5 — o pino do LED vermelho.'],
+ ['int amarelo  = 6;','O LED amarelo está ligado no pino 6.'],
+ ['int verde    = 7;','O LED verde está ligado no pino 7.'],
+ ['',''],
+ ['void setup() {','setup() roda uma única vez, assim que o Arduino liga. É a hora de preparar tudo.'],
+ ['  pinMode(vermelho, OUTPUT);','Avisa que o pino do vermelho é uma SAÍDA (OUTPUT): o Arduino vai mandar energia por ele.'],
+ ['  pinMode(amarelo, OUTPUT);','O pino do amarelo também é saída.'],
+ ['  pinMode(verde, OUTPUT);','E o pino do verde também.'],
+ ['}','Fim do setup.'],
+ ['',''],
+ ['void loop() {','loop() repete para sempre: quando chega no fim, volta para o começo.'],
+ ['  digitalWrite(verde, HIGH);','HIGH = ligar. O pino 7 recebe 5 volts e o LED verde acende: pode passar!'],
+ ['  delay(3000);','Espera 3000 milissegundos. Como 1000 ms = 1 segundo, isso dá 3 segundos.'],
+ ['  digitalWrite(verde, LOW);','LOW = desligar. O verde apaga.'],
+ ['  digitalWrite(amarelo, HIGH);','Acende o amarelo: atenção!'],
+ ['  delay(1000);','Espera 1 segundo.'],
+ ['  digitalWrite(amarelo, LOW);','Apaga o amarelo.'],
+ ['  digitalWrite(vermelho, HIGH);','Acende o vermelho: pare!'],
+ ['  delay(3000);','Espera 3 segundos.'],
+ ['  digitalWrite(vermelho, LOW);','Apaga o vermelho. Depois disso o loop recomeça e o verde acende de novo.'],
+ ['}','Fim do loop… e tudo começa outra vez!'],
+];
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function hl(line){ let code=line,cm=''; const i=line.indexOf('//'); if(i>=0){code=line.slice(0,i);cm=line.slice(i);}
+  code=esc(code).replace(/\b(void|int)\b|\b(pinMode|digitalWrite|delay|setup|loop)\b|\b(HIGH|LOW|OUTPUT)\b|\b(\d+)\b/g,(m,a,b,c)=>a?`<span class="k">${m}</span>`:b?`<span class="f">${m}</span>`:c?`<span class="c">${m}</span>`:`<span class="n">${m}</span>`);
+  return code+(cm?`<span class="cm">${esc(cm)}</span>`:''); }
+const codeBlock=()=>`<div class="code" id="code">${CODE.map((l,i)=>`<div class="ln" data-i="${i}">${hl(l[0])||' '}</div>`).join('')}</div>`;
+const CODE_TEXT=CODE.map(l=>l[0]).join('\n');
+function bindCode(id){ document.querySelectorAll('#code .ln').forEach(el=>el.onclick=()=>{ const i=+el.dataset.i; if(!CODE[i][1]) return;
+  document.querySelectorAll('#code .ln.sel').forEach(x=>x.classList.remove('sel')); el.classList.add('sel');
+  document.getElementById(id).innerHTML=`<b>${esc(CODE[i][0].trim())}</b><br>${CODE[i][1]}`; }); }
+function bindCopy(){ const b=document.getElementById('copy'); if(!b) return; b.onclick=()=>{ try{ navigator.clipboard.writeText(CODE_TEXT).then(()=>b.textContent='✅ Copiado!',()=>b.textContent='Selecione o código e copie'); }catch(e){ b.textContent='Selecione o código e copie'; } }; }
+
+/* ============ SIMULAÇÃO ============ */
+const PH=[{k:'G',ms:3000,lines:[12,13],txt:'Verde aceso',sub:'Pode passar!'},{k:'Y',ms:1000,lines:[14,15,16],txt:'Amarelo aceso',sub:'Atenção!'},{k:'R',ms:3000,lines:[17,18,19],txt:'Vermelho aceso',sub:'Pare!'}];
+const sim={run:false,ph:0,el:0,speed:1,timer:null,showFlow:true};
+function simRender(){ const p=PH[sim.ph], o={}; o[p.k]=true; setLeds(o); setFlow(sim.showFlow?o:{});
+  document.querySelectorAll('#code .ln').forEach(el=>el.classList.toggle('run',p.lines.includes(+el.dataset.i)));
+  const m=document.querySelectorAll('.mini i'); m.forEach(i=>i.classList.remove('on')); const idx={R:0,Y:1,G:2}[p.k]; if(m[idx]) m[idx].classList.add('on');
+  const t=document.getElementById('stxt'), s=document.getElementById('ssub'); if(t){ t.textContent=p.txt; s.textContent=`${p.sub} · faltam ${Math.max(0,(p.ms-sim.el)/1000).toFixed(1)} s`; } }
+function simStart(){ if(sim.run) return; sim.run=true; clearInterval(sim.timer);
+  sim.timer=setInterval(()=>{ sim.el+=100*sim.speed; if(sim.el>=PH[sim.ph].ms){ sim.el=0; sim.ph=(sim.ph+1)%PH.length; if(step!==0) clickSound(500);} simRender(); },100);
+  simRender(); const b=document.getElementById('play'); if(b) b.textContent='⏸ Pausar'; }
+function simStop(){ sim.run=false; clearInterval(sim.timer); const b=document.getElementById('play'); if(b) b.textContent='▶ Ligar'; }
+
+/* ============ PASSOS ============ */
+const OVER={t:[-10,0,0],d:50,theta:-.25,phi:.95};
+const STEPS=[
+{chip:'Introdução',title:'Vamos montar um semáforo! 🚦',cam:{t:[-10,0,0],d:54,theta:-.5,phi:.9},html:`
+ <p>Hoje você vai construir um <b>semáforo de verdade</b> usando um <b>Arduino</b> (o cérebro) e uma <b>protoboard</b> (a base onde a gente monta tudo sem solda).</p>
+ <p>Ao lado está o semáforo <b>pronto e funcionando</b>, em 3D. A partir do próximo passo, vamos montar tudo do zero, peça por peça!</p>
+ <div class="mats">
+  <div class="mat"><span>🟦</span>1 Arduino UNO + cabo USB</div><div class="mat"><span>⬜</span>1 protoboard média (400 furos)</div>
+  <div class="mat"><span>💡</span>3 LEDs: vermelho, amarelo e verde</div><div class="mat"><span>〰️</span>3 resistores de 220 Ω</div>
+  <div class="mat"><span>🔌</span>4 fios jumper (vermelho, amarelo, verde e preto)</div><div class="mat"><span>💻</span>Computador com a IDE do Arduino</div>
+ </div>
+ <div class="box tip"><b>🕹️ Controles 3D</b>Arraste para <b>girar</b> · role (ou use 2 dedos) para <b>zoom</b> · botão direito (ou 2 dedos) para <b>mover</b>. O botão 🎯 volta para a melhor vista e o ⬇ mostra de cima.</div>`,
+ enter(){ PIECES.forEach(resetPiece); sim.ph=0; sim.el=0; simStart(); autoRot=true; rotBtn.classList.add('on'); },
+ leave(){ simStop(); setLeds({}); setFlow({}); autoRot=false; rotBtn.classList.remove('on'); }},
+{chip:'Passo 1 · A base',title:'Conheça a protoboard',cam:{t:[0,0,0],d:31,theta:0,phi:.7},html:`
+ <p>A protoboard é cheia de furinhos. <b>Por dentro</b> deles existem tirinhas de metal que ligam alguns furos entre si:</p>
+ <ul><li>Cada <b>coluna numerada</b> tem <b>5 furos ligados</b>: a–e (embaixo) e f–j (em cima).</li>
+  <li>A <b>canaleta</b> do meio separa as duas metades — elas <b>não</b> se ligam.</li>
+  <li>Nas bordas ficam os <b>trilhos</b>: <span style="color:#e53935;font-weight:800">+</span> (linha vermelha) e <span style="color:#2f6fde;font-weight:800">−</span> (linha azul), ligados na <b>horizontal</b>.</li></ul>
+ <div class="btnrow"><button class="btn" id="xbtn">🔬 Ver por dentro (raio‑X)</button></div>
+ <div class="box fun"><b>👆 Experimente!</b>Toque em qualquer furo e veja quais outros estão ligados com ele. No raio‑X, gire a protoboard para ver as tiras de metal escondidas.</div>`,
+ enter(){ const b=document.getElementById('xbtn'); b.onclick=()=>{ const on=!xray.visible; setXray(on); b.classList.toggle('on',on); b.textContent=on?'🙈 Esconder raio‑X':'🔬 Ver por dentro (raio‑X)'; if(on) flyTo({t:[0,0,0],d:26,theta:.35,phi:.85}); }; },
+ leave(){ setXray(false); }},
+{chip:'Passo 2 · O cérebro',title:'Conheça o Arduino',cam:{t:[-29,0,.5],d:24,theta:-.25,phi:.75},html:`
+ <p>O Arduino é um <b>pequeno computador</b>. Ele segue o programa que a gente escreve e pode <b>ligar ou desligar</b> seus pinos.</p>
+ <ul><li><b>Pino 5</b> → LED vermelho</li><li><b>Pino 6</b> → LED amarelo</li><li><b>Pino 7</b> → LED verde</li>
+  <li><b>GND</b> → o “terra” (negativo): é o caminho de <b>volta</b> da eletricidade.</li></ul>
+ <div class="box fun"><b>🤓 Curiosidade</b>O símbolo <b>~</b> ao lado de alguns números indica pinos que conseguem controlar o <b>brilho</b> (PWM). Para o semáforo, só precisamos ligar e desligar.</div>`},
+{chip:'Passo 3 · Peça nova',title:'Encaixe o LED vermelho 🔴',cam:{t:[LEDS.R.ax+.5,1.5,3.5],d:11,theta:.45,phi:1.05},html:`
+ <p>Coloque o LED vermelho na <span class="where">linha b</span>, colunas <span class="where">8</span> e <span class="where">9</span>.</p>
+ <p>O LED tem <b>lado certo</b>:</p>
+ <ul><li><b>Perna longa = + (ânodo)</b> → coluna 8. No modelo, é a perna <b>reta</b>.</li>
+  <li><b>Perna curta = − (cátodo)</b> → coluna 9. No modelo, é a perna <b>dobrada</b>.</li></ul>
+ <div class="box warn"><b>⚠️ Atenção</b>Se o LED estiver ao contrário, ele simplesmente <b>não acende</b>. É só virar!</div>
+ <div class="box tip"><b>🔄 Gire!</b>Arraste para olhar o LED de lado e ver a diferença entre as pernas.</div>`},
+{chip:'Passo 4 · Peça nova',title:'Encaixe o LED amarelo 🟡',cam:{t:[LEDS.Y.ax+.5,1.5,3.5],d:12,theta:.3,phi:1.0},html:`
+ <p>Agora o LED amarelo, também na <span class="where">linha b</span>, colunas <span class="where">15</span> e <span class="where">16</span>.</p>
+ <ul><li>Perna reta (+) → coluna 15</li><li>Perna dobrada (−) → coluna 16</li></ul>
+ <div class="box tip"><b>💡 Por que deixar espaço?</b>Assim as pernas de LEDs diferentes não ficam na mesma coluna — senão eles ficariam ligados entre si.</div>`},
+{chip:'Passo 5 · Peça nova',title:'Encaixe o LED verde 🟢',cam:{t:[LEDS.G.ax+.5,1.5,3.5],d:12,theta:.15,phi:1.0},html:`
+ <p>Por último, o LED verde: <span class="where">linha b</span>, colunas <span class="where">22</span> e <span class="where">23</span>.</p>
+ <ul><li>Perna reta (+) → coluna 22</li><li>Perna dobrada (−) → coluna 23</li></ul>
+ <p>Os três LEDs estão no lugar! Mas ainda falta proteger cada um deles…</p>`},
+{chip:'Passo 6 · Proteção',title:'Coloque os resistores',cam:{t:[-.5,1,5.2],d:20,theta:.55,phi:.95},html:`
+ <p>O <b>resistor</b> controla a quantidade de eletricidade que passa. Sem ele, o LED pode <b>queimar</b>!</p>
+ <p>Encaixe um resistor de <b>220 Ω</b> em cada coluna da <b>perna curta</b>:</p>
+ <ul><li>Uma ponta na <span class="where">linha a</span> das colunas <span class="where">9</span>, <span class="where">16</span> e <span class="where">23</span></li>
+  <li>A outra ponta no <b>trilho azul (−)</b> de baixo</li></ul>
+ <div class="box fun"><b>🎨 Código de cores</b>220 Ω = <b style="color:#d32f2f">vermelho</b>, <b style="color:#d32f2f">vermelho</b>, <b style="color:#6d3b16">marrom</b> (2, 2 e ×10 → 220). A faixa <b style="color:#b8901a">dourada</b> é a precisão. E o resistor <b>não tem lado certo</b>!</div>`},
+{chip:'Passo 7 · Fio',title:'Fio preto: o GND',cam:{t:[-21,1,8],d:24,theta:.15,phi:.85},html:`
+ <p>Ligue um <b>fio preto</b> do pino <span class="where">GND</span> do Arduino até o <b>trilho azul (−)</b> da protoboard.</p>
+ <p>Assim, os três resistores ganham um caminho de <b>volta</b> até o Arduino.</p>
+ <div class="box tip"><b>🎨 Combinado dos eletricistas</b>Fios pretos (ou azuis) costumam ser usados para o negativo / GND. Isso ajuda qualquer pessoa a entender o circuito.</div>`},
+{chip:'Passo 8 · Fio',title:'Fio vermelho → pino 5',cam:{t:[-16,2,-4],d:36,theta:-.3,phi:.85},html:`
+ <p>Ligue o <b>fio vermelho</b> do <span class="where">pino 5</span> do Arduino até a <span class="where">linha e</span> da <span class="where">coluna 8</span>.</p>
+ <p>A coluna 8 é a mesma da <b>perna reta (+)</b> do LED vermelho — lembra que os 5 furos da coluna são ligados?</p>`},
+{chip:'Passo 9 · Fio',title:'Fio amarelo → pino 6',cam:{t:[-13,2,-4],d:38,theta:-.2,phi:.85},html:`
+ <p>Ligue o <b>fio amarelo</b> do <span class="where">pino 6</span> até a <span class="where">linha e</span> da <span class="where">coluna 15</span> (perna reta do LED amarelo).</p>`},
+{chip:'Passo 10 · Fio',title:'Fio verde → pino 7',cam:{t:[-10,2,-4],d:42,theta:-.1,phi:.85},html:`
+ <p>Ligue o <b>fio verde</b> do <span class="where">pino 7</span> até a <span class="where">linha e</span> da <span class="where">coluna 22</span> (perna reta do LED verde).</p>
+ <p>🎉 <b>Montagem completa!</b> Gire a bancada e confira tudo de vários ângulos.</p>`},
+{chip:'Conferência',title:'O caminho da eletricidade ⚡',cam:OVER,html:`
+ <p>A eletricidade precisa de um <b>caminho fechado</b> (um <b>circuito</b>). Escolha um LED e veja as bolinhas de energia passando:</p>
+ <div class="btnrow"><button class="btn fb on" data-k="R">🔴 Vermelho</button><button class="btn fb" data-k="Y">🟡 Amarelo</button><button class="btn fb" data-k="G">🟢 Verde</button></div>
+ <p style="font-size:15px">Pino → fio → perna reta (+) → LED → perna dobrada (−) → resistor → trilho − → fio preto → GND</p>
+ <p><b>Antes de ligar, confira:</b></p>
+ <div class="check"><label><input type="checkbox"> Perna reta (+) de cada LED na mesma coluna do seu fio colorido</label>
+  <label><input type="checkbox"> Resistor na coluna da perna dobrada (−)</label><label><input type="checkbox"> Resistores encaixados no trilho azul (−)</label>
+  <label><input type="checkbox"> Fio preto do GND até o trilho azul (−)</label></div>`,
+ enter(){ const sel=k=>{ document.querySelectorAll('.fb').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); const o={};o[k]=true; setLeds(o); setFlow(o); };
+   document.querySelectorAll('.fb').forEach(b=>b.onclick=()=>sel(b.dataset.k)); sel('R');
+   document.querySelectorAll('.check input').forEach(c=>c.onchange=()=>{ if([...document.querySelectorAll('.check input')].every(x=>x.checked)) toast('✅ Tudo certo! Pode avançar.'); }); },
+ leave(){ setLeds({}); setFlow({}); }},
+{chip:'Programação',title:'O código do semáforo',cam:OVER,html:`
+ <p>Agora vamos <b>ensinar</b> o Arduino. Toque em uma linha para descobrir o que ela faz:</p>
+ ${codeBlock()}<div class="explain" id="ex">👆 Toque em uma linha do código.</div>
+ <div class="btnrow" style="margin-top:12px"><button class="btn" id="copy">📋 Copiar código</button></div>
+ <div class="box tip"><b>📤 Para enviar ao Arduino</b>Conecte o cabo USB, cole o código na IDE do Arduino, escolha a placa “Arduino Uno” e clique em <b>Carregar</b> (a setinha →).</div>`,
+ enter(){ bindCode('ex'); bindCopy(); }},
+{chip:'Teste',title:'Hora de ligar! 🚦',cam:{t:[-4,1,1],d:34,theta:.2,phi:.95},html:`
+ <div class="status"><div class="mini"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+   <div><div class="txt" id="stxt">Desligado</div><div class="sub" id="ssub">Aperte “Ligar” para começar</div></div></div>
+ <div class="btnrow"><button class="btn primary" id="play">▶ Ligar</button><button class="btn" id="spd">Velocidade: 1x</button><button class="btn on" id="flw">⚡ Eletricidade: sim</button></div>
+ <p style="font-size:14.5px;color:var(--muted)">A linha verde no código mostra o que o Arduino está fazendo agora:</p>
+ ${codeBlock()}<div class="explain" id="ex2">👆 Toque em uma linha do código para ver a explicação.</div>`,
+ enter(){ bindCode('ex2'); sim.ph=0; sim.el=0;
+   document.getElementById('play').onclick=()=>sim.run?simStop():simStart();
+   document.getElementById('spd').onclick=e=>{ sim.speed=sim.speed===1?2:sim.speed===2?0.5:1; e.currentTarget.textContent=`Velocidade: ${sim.speed}x`; };
+   document.getElementById('flw').onclick=e=>{ sim.showFlow=!sim.showFlow; e.currentTarget.classList.toggle('on',sim.showFlow); e.currentTarget.textContent=`⚡ Eletricidade: ${sim.showFlow?'sim':'não'}`; if(sim.run) simRender(); };
+   simStart(); },
+ leave(){ simStop(); setLeds({}); setFlow({}); }},
+{chip:'Desafio final',title:'Você é fera? 🏆',cam:OVER,html:`
+ <p>Responda para ver o quanto você aprendeu:</p><div id="quiz"></div><div class="score" id="score"></div>
+ <div class="box fun"><b>🚀 Desafios extras</b>1. Mude os tempos: deixe o verde aceso por <b>5 segundos</b>.<br>2. Faça o amarelo <b>piscar 3 vezes</b> antes do vermelho.<br>3. Semáforo de pedestre: adicione um <b>botão</b> que faz o sinal fechar quando alguém aperta!</div>`,
+ enter(){ buildQuiz(); }, leave(){ setLeds({}); }},
+];
+const QUIZ=[
+ {q:'Qual perna do LED é o positivo (+)?',o:['A perna mais curta (dobrada)','A perna mais longa (reta)','Tanto faz'],a:1,e:'A perna longa é o ânodo (+). Ela vai na coluna do fio colorido.'},
+ {q:'Para que serve o resistor?',o:['Para o LED brilhar mais','Para limitar a corrente e proteger o LED','Para guardar energia'],a:1,e:'Ele limita a corrente — sem ele o LED pode queimar.'},
+ {q:'Os furos a, b, c, d, e da mesma coluna…',o:['estão ligados entre si','não se ligam','só ligam com o trilho +'],a:0,e:'Por dentro existe uma tirinha de metal ligando os 5 furos.'},
+ {q:'Para o verde ficar aceso 5 segundos, eu uso…',o:['delay(5)','delay(500)','delay(5000)'],a:2,e:'delay usa milissegundos: 5000 ms = 5 s.'},
+ {q:'O que o fio preto liga?',o:['Pino 5 ao LED','GND do Arduino ao trilho −','Trilho + ao trilho −'],a:1,e:'É o caminho de volta da eletricidade até o Arduino.'},
+];
+function buildQuiz(){ let ok=0,done=0; const box=document.getElementById('quiz');
+  box.innerHTML=QUIZ.map((q,i)=>`<div class="q" data-i="${i}"><p>${i+1}. ${q.q}</p>${q.o.map((o,j)=>`<button data-j="${j}">${o}</button>`).join('')}<div class="fb"></div></div>`).join('');
+  box.querySelectorAll('.q').forEach(qd=>{ const q=QUIZ[+qd.dataset.i]; let ans=false;
+    qd.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(ans) return; ans=true; done++; const j=+b.dataset.j;
+      if(j===q.a){ b.classList.add('ok'); ok++; qd.querySelector('.fb').innerHTML='✅ Isso aí! '+q.e; clickSound(1400); }
+      else { b.classList.add('no'); qd.querySelectorAll('button')[q.a].classList.add('ok'); qd.querySelector('.fb').innerHTML='Quase! '+q.e; }
+      if(done===QUIZ.length){ document.getElementById('score').textContent=`Você acertou ${ok} de ${QUIZ.length}! `+(ok===QUIZ.length?'🏆 Engenheiro(a) nota 10!':ok>=3?'👏 Muito bem!':'💪 Revise os passos e tente de novo!'); if(ok===QUIZ.length){ setLeds({R:1,Y:1,G:1}); autoRot=true; } } }); }); }
+
+/* ============ NAVEGAÇÃO ============ */
+let step=-1;
+const dots=document.getElementById('dots');
+dots.innerHTML=STEPS.map((s,i)=>`<button class="dot" data-i="${i}" title="${s.title.replace(/"/g,'')}"></button>`).join('');
+dots.querySelectorAll('.dot').forEach(d=>d.onclick=()=>go(+d.dataset.i));
+document.getElementById('prev').onclick=()=>go(step-1);
+document.getElementById('next').onclick=()=>go(step+1);
+document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT') return; if(e.key==='ArrowRight') go(step+1); if(e.key==='ArrowLeft') go(step-1); });
+function go(n){
+  if(n<0||n>=STEPS.length||n===step) return;
+  const first=step<0; if(!first && STEPS[step].leave) STEPS[step].leave();
+  const dir=first?0:(n>step?1:-1); step=n;
+  anims.length=0; hlGroup.clear();
+  PIECES.forEach(p=>{ resetPiece(p);
+    if(step===0) return;
+    if(p.step>step){ p.obj.visible=false; return; }
+    if(p.step===step && dir===1) animatePiece(p);
+  });
+  if(dir===1 && step>=1 && step<=10) setTimeout(()=>toast(step<=2?'✔ Peça colocada na bancada!':'✔ Peça encaixada!'), step>=7?1400:850);
+  const st=STEPS[step];
+  document.getElementById('content').innerHTML=`<span class="chip">${st.chip}</span><h2>${st.title}</h2>${st.html}`;
+  document.getElementById('content').scrollTop=0;
+  if(st.enter) st.enter();
+  document.getElementById('count').textContent=`${step+1} / ${STEPS.length}`;
+  document.getElementById('prev').disabled=step===0;
+  const nx=document.getElementById('next'); nx.disabled=step===STEPS.length-1;
+  nx.textContent= step===0?'Começar ▶': step===STEPS.length-1?'Fim 🎉':'Próximo ▶';
+  dots.querySelectorAll('.dot').forEach((d,i)=>{ d.classList.toggle('cur',i===step); d.classList.toggle('done',i<step); });
+  if(first){ const c=st.cam; orb.target.set(...c.t); orb.dist=c.d; orb.theta=c.theta; orb.phi=c.phi; } else flyTo(st.cam);
+}
+
+/* ============ LOOP ============ */
+const tmp=new T.Vector3(); let last=performance.now();
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  if(camTween){ const k=Math.min(1,Math.max(0,(now-camTween.t0)/camTween.ms)), e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2, f=camTween.from, t=camTween.to;
+    orb.target.lerpVectors(f.t,t.t,e); orb.dist=f.d+(t.d-f.d)*e; orb.theta=f.th+(t.th-f.th)*e; orb.phi=f.ph+(t.ph-f.ph)*e; if(k>=1) camTween=null; }
+  if(autoRot && !camTween && now-lastUser>1500) orb.theta+=dt*.18;
+  applyCam();
+  for(let i=anims.length-1;i>=0;i--){ const a=anims[i], k=(now-a.t0)/a.ms; if(k<0) continue;
+    const p=a.p;
+    if(a.wire){ const w=wireObj[p.wire]; w.ps.visible=true; const kk=Math.min(1,k); const c=Math.floor(w.count*(1-Math.pow(1-kk,2))/30)*30; w.geo.setDrawRange(0,c);
+      if(kk>=1){ w.geo.setDrawRange(0,Infinity); w.pe.visible=true; spark(p.pts); anims.splice(i,1); } }
+    else { p.obj.visible=true; const kk=Math.min(1,k); p.obj.position.y=p.h*(1-outBounce(kk));
+      if(kk>=1){ p.obj.position.y=0; if(p.pts.length) spark(p.pts); else clickSound(700); anims.splice(i,1); } } }
+  for(let i=sparks.length-1;i>=0;i--){ const s=sparks[i], k=(now-s.t0)/650; s.m.scale.setScalar(1+k*5); s.m.material.opacity=1-k; if(k>=1){ scene.remove(s.m); sparks.splice(i,1); } }
+  const pul=(now%1300)/1300;
+  rings.forEach(r=>{ r.m.visible=r.steps.includes(step); if(r.m.visible){ r.m.scale.setScalar(1+pul*2.6); r.m.material.opacity=1-pul; } });
+  annMeshes.forEach(a=>{ a.m.visible=a.steps.includes(step); a.m.material.opacity=.3+.2*Math.sin(now/300); });
+  for(const k in flowObj){ const F=flowObj[k]; if(!F.g.visible) continue; const n=F.pts.length, N=F.dots.length, off=Math.floor(now/1000*55);
+    F.dots.forEach((d,i)=>{ d.position.copy(F.pts[(off+Math.floor(i*n/N))%n]); }); }
+  const r=canvas.getBoundingClientRect();
+  LABELS.forEach(l=>{ const show=l.steps.includes(step) && !anims.length; if(!show){ l.el.style.display='none'; return; }
+    tmp.copy(l.pos).project(camera); if(tmp.z>1){ l.el.style.display='none'; return; }
+    l.el.style.display='block'; l.el.style.left=((tmp.x+1)/2*r.width)+'px'; l.el.style.top=((1-tmp.y)/2*r.height)+'px'; });
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+go(0); requestAnimationFrame(frame);
+window.__dbg={go:n=>go(n),orb};
+})();
+</script>
+</body>
+</html>
